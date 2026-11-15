@@ -51,13 +51,22 @@ model Judgment {
   citations  Citation[]
   hearings   Hearing[]
   createdAt  DateTime   @default(now())
+  pageCount    Int?
+  errorMessage String?
+    parties      String?
+  outcome      String?
+  language     String?
+  summarizedAt DateTime?
 }
 
 model Citation {
   id         String   @id @default(cuid())
   text       String
+  normalized String?
   judgment   Judgment @relation(fields: [judgmentId], references: [id], onDelete: Cascade)
   judgmentId String
+
+  @@index([normalized])
 }
 
 model Hearing {

@@ -1,6 +1,11 @@
-import { Newsreader, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
+import { Newsreader, Hanken_Grotesk, Noto_Sans_Devanagari } from "next/font/google";
 
+const devanagari = Noto_Sans_Devanagari({
+  subsets: ["devanagari", "latin"],
+  variable: "--font-devanagari",
+  display: "swap",
+});
 const newsreader = Newsreader({
   subsets: ["latin"],
   variable: "--font-newsreader",
@@ -21,7 +26,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${newsreader.variable} ${hanken.variable}`}>
+    <html lang="en" className={`${newsreader.variable} ${hanken.variable} ${devanagari.variable}`}>
       <body>{children}</body>
     </html>
   );

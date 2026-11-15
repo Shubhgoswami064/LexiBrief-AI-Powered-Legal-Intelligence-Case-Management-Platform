@@ -24,6 +24,8 @@
   --color-danger: var(--danger);
   --font-sans: var(--font-hanken), system-ui, sans-serif;
   --font-serif: var(--font-newsreader), Georgia, serif;
+    --font-sans: var(--font-hanken), var(--font-devanagari), system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), var(--font-devanagari), Georgia, serif;
 }
 
 body {

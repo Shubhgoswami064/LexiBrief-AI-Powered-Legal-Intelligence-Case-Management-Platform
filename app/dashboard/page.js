@@ -43,7 +43,7 @@ export default async function DashboardPage() {
 
   const [total, ready, processing, recent, hearings] = await Promise.all([
     prisma.judgment.count({ where: { userId } }),
-    prisma.judgment.count({ where: { userId, status: "READY" } }),
+    prisma.judgment.count({ where: { userId, summarizedAt: { not: null } } }),
     prisma.judgment.count({ where: { userId, status: "PROCESSING" } }),
     prisma.judgment.findMany({
       where: { userId },
