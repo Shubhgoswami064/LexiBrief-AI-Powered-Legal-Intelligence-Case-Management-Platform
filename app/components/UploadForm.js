@@ -74,8 +74,8 @@ export default function UploadForm() {
             const processed = await processRes.json();
       if (!processRes.ok) throw new Error(processed.error);
 
-      setStage("summarizing");
-      await fetch(`/api/judgments/${created.id}/summarize`, { method: "POST" }).catch(() => {});
+      // setStage("summarizing");
+      // await fetch(`/api/judgments/${created.id}/summarize`, { method: "POST" }).catch(() => {});
 
       router.push(`/judgments/${created.id}`);
     } catch (err) {

@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { signOut } from "../../auth";
 import Brand from "./Brand";
+import NavLinks from "./NavLinks";
 
 export default function Sidebar({ name, roleLabel }) {
   return (
@@ -8,24 +8,7 @@ export default function Sidebar({ name, roleLabel }) {
       <Brand tone="light" />
 
       <nav className="hidden lg:mt-14 lg:block">
-        <ul className="space-y-1 text-sm">
-          <li>
-            <Link
-              href="/dashboard"
-              className="block border-l-2 border-brass py-2 pl-3 text-white"
-            >
-              Dashboard
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/upload"
-              className="block border-l-2 border-transparent py-2 pl-3 text-white/70 transition hover:text-white"
-            >
-              Upload judgment
-            </Link>
-          </li>
-        </ul>
+        <NavLinks />
       </nav>
 
       <div className="text-sm lg:mt-auto">

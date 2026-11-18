@@ -57,6 +57,7 @@ model Judgment {
   outcome      String?
   language     String?
   summarizedAt DateTime?
+  embedding    Unsupported("vector(768)")?
 }
 
 model Citation {
@@ -75,6 +76,7 @@ model Hearing {
   purpose    String?
   judgment   Judgment  @relation(fields: [judgmentId], references: [id], onDelete: Cascade)
   judgmentId String
+  reminderSentAt DateTime?
 }
 
 enum Role {
