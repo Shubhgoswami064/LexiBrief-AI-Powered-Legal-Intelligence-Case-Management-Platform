@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/judgments", label: "All judgments" },
   { href: "/upload", label: "Upload judgment" },
+  { href: "/hearings", label: "All hearings" },
 ];
 
 export default function NavLinks() {

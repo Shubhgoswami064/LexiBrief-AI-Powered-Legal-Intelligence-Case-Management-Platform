@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "../../auth";
 import prisma from "../../lib/prisma";
+import { istDayRange } from "../../lib/ist";
 import Sidebar from "../components/Sidebar";
 
 const ROLE_LABEL = {
@@ -38,8 +39,7 @@ export default async function DashboardPage() {
   if (!session) redirect("/login");
 
   const userId = session.user.id;
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+    const startOfToday = istDayRange(0).start;
 
   const [total, ready, processing, recent, hearings] = await Promise.all([
     prisma.judgment.count({ where: { userId } }),

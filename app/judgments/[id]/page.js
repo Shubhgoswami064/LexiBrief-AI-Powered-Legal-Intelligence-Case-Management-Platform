@@ -1,4 +1,3 @@
-import SimilarJudgments from "../../components/SimilarJudgments";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../auth";
 import prisma from "../../../lib/prisma";
@@ -6,6 +5,8 @@ import Sidebar from "../../components/Sidebar";
 import SummaryButton from "../../components/SummaryButton";
 import AutoSummarize from "../../components/AutoSummarize";
 import DeleteButton from "../../components/DeleteButton";
+import SimilarJudgments from "../../components/SimilarJudgments";
+import HearingManager from "../../components/HearingManager";
 
 const ROLE_LABEL = {
   LAWYER: "Lawyer",
@@ -41,6 +42,11 @@ export default async function JudgmentPage({ params }) {
   const preview = j.fullText ? j.fullText.slice(0, PREVIEW_CHARS) : "";
   const keyPoints = Array.isArray(j.keyPoints) ? j.keyPoints : [];
   const hasSummary = Boolean(j.summary);
+  const hearings = j.hearings.map((h) => ({
+    id: h.id,
+    date: h.date.toISOString(),
+    purpose: h.purpose,
+  }));
 
   const stats = [
     { label: "Pages", value: j.pageCount ?? "-" },
@@ -95,8 +101,8 @@ export default async function JudgmentPage({ params }) {
           </p>
         )}
 
-        {j.fullText && (
-          <div className="mt-10 grid gap-12 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="mt-10 grid gap-12 xl:grid-cols-[minmax(0,1fr)_300px]">
+          {j.fullText ? (
             <section className="max-w-3xl">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <h2 className="font-serif text-2xl">Summary</h2>
@@ -127,11 +133,16 @@ export default async function JudgmentPage({ params }) {
                     </div>
                   )}
 
-                                    <SimilarJudgments
+                  <SimilarJudgments
                     judgmentId={j.id}
                     userId={session.user.id}
                     citations={j.citations}
                   />
+
+                  <p className="mt-10 text-sm text-muted">
+                    AI-generated. Check the summary and citations against the original judgment before
+                    relying on them.
+                  </p>
                 </>
               ) : isRecent(j.createdAt) ? (
                 <AutoSummarize judgmentId={j.id} />
@@ -142,52 +153,36 @@ export default async function JudgmentPage({ params }) {
                 </div>
               )}
             </section>
+          ) : (
+            <div />
+          )}
+
+          <aside className="space-y-10 xl:border-l xl:border-rule xl:pl-8">
+            <HearingManager judgmentId={j.id} hearings={hearings} />
 
             {hasSummary && (
-              <aside className="space-y-10 xl:border-l xl:border-rule xl:pl-8">
-                <div>
-                  <h3 className="font-serif text-xl">Hearings</h3>
-                  {j.hearings.length === 0 ? (
-                    <p className="mt-3 text-sm text-muted">
-                      No upcoming hearing was mentioned in this judgment.
-                    </p>
-                  ) : (
-                    <ul className="mt-4 space-y-3">
-                      {j.hearings.map((h) => (
-                        <li key={h.id}>
-                          <p className="font-medium">
-                            {formatDate(h.date, { day: "numeric", month: "long", year: "numeric" })}
-                          </p>
-                          {h.purpose && <p className="text-sm text-muted">{h.purpose}</p>}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="font-serif text-xl">
-                    Citations{j.citations.length > 0 ? ` (${j.citations.length})` : ""}
-                  </h3>
-                  {j.citations.length === 0 ? (
-                    <p className="mt-3 text-sm text-muted">No citations found in this judgment.</p>
-                  ) : (
-                    <ul className="mt-4 max-h-[28rem] space-y-2 overflow-y-auto pr-1">
-                      {j.citations.map((c) => (
-                        <li
-                          key={c.id}
-                          className="rounded border border-rule bg-white px-2.5 py-1.5 text-sm"
-                        >
-                          {c.text}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </aside>
+              <div>
+                <h3 className="font-serif text-xl">
+                  Citations{j.citations.length > 0 ? ` (${j.citations.length})` : ""}
+                </h3>
+                {j.citations.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted">No citations found in this judgment.</p>
+                ) : (
+                  <ul className="mt-4 max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+                    {j.citations.map((c) => (
+                      <li
+                        key={c.id}
+                        className="rounded border border-rule bg-white px-2.5 py-1.5 text-sm"
+                      >
+                        {c.text}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
-          </div>
-        )}
+          </aside>
+        </div>
 
         {preview && (
           <details className="mt-12 max-w-3xl">
