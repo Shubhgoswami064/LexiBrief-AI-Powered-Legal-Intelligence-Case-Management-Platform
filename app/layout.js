@@ -19,9 +19,9 @@ const hanken = Hanken_Grotesk({
 });
 
 export const metadata = {
-  title: "Judgment Digest",
+  title: "LexiBrief",
   description:
-    "Upload court judgments and get summaries, key legal points, citations and similar cases.",
+    "Upload court judgments and get summaries, key legal points, verified citations, similar judgments and hearing reminders.",
 };
 
 export default function RootLayout({ children }) {

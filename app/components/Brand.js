@@ -7,7 +7,7 @@ export default function Brand({ tone = "light" }) {
         <path d="M8 9.5h12M8 14h12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         <path d="M8 18.5h7" stroke="#b8862b" strokeWidth="2.2" strokeLinecap="round" />
       </svg>
-      <span className="font-serif text-xl tracking-tight">Judgment Digest</span>
+      <span className="font-serif text-xl tracking-tight">LexiBrief</span>
     </div>
   );
 }
