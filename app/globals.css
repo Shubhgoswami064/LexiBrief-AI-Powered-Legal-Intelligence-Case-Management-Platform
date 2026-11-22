@@ -1,3 +1,4 @@
+
 @import "tailwindcss";
 
 :root {
@@ -97,9 +98,10 @@ body {
   }
 
   /* ---------- animated "judgment to summary" visual ---------- */
-  .distill {
+   .distill {
     position: relative;
-    width: min(100%, 400px);
+    width: 400px;
+    max-width: 100%;
     padding-bottom: 90px;
   }
   .distill-paper {
@@ -195,4 +197,29 @@ body {
   .distill-line.is-key { animation: none; background: #ecd08a; }
   .distill-row { animation: none; opacity: 1; }
   .animate-pulse { animation: none; }
+}
+/* ---------- page-load reveal and bar growth ---------- */
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.reveal {
+  animation: reveal 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+.bar-grow {
+  transform-origin: left;
+  animation: grow 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 90ms + 250ms);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .bar-grow { animation: none; }
 }

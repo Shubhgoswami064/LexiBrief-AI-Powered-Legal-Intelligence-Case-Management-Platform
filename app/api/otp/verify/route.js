@@ -2,6 +2,7 @@ import prisma from "../../../../lib/prisma";
 import { hashOtp, safeEqual } from "../../../../lib/otp";
 
 const MAX_ATTEMPTS = 5;
+const PURPOSE = "VERIFY";
 
 export async function POST(req) {
   const body = await req.json();
@@ -13,7 +14,7 @@ export async function POST(req) {
   }
 
   const record = await prisma.otpCode.findFirst({
-    where: { email },
+    where: { email, purpose: PURPOSE },
     orderBy: { createdAt: "desc" },
   });
 
@@ -32,7 +33,7 @@ export async function POST(req) {
     return Response.json({ error: "That code is incorrect." }, { status: 400 });
   }
 
-  await prisma.otpCode.deleteMany({ where: { email } });
+  await prisma.otpCode.deleteMany({ where: { email, purpose: PURPOSE } });
   await prisma.user.update({
     where: { email },
     data: { emailVerified: new Date() },

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "../../auth";
 import prisma from "../../lib/prisma";
-import { istDayRange } from "../../lib/ist";
+import { istDayRange, toDateInputValue } from "../../lib/ist";
 import Sidebar from "../components/Sidebar";
 
 const ROLE_LABEL = {
@@ -34,17 +34,47 @@ function StatusPill({ status }) {
   );
 }
 
+function BarRow({ label, value, max, unit, index, color = "bg-brass" }) {
+  const pct = max > 0 ? Math.max(6, Math.round((value / max) * 100)) : 0;
+  return (
+    <li>
+      <div className="flex items-baseline justify-between gap-4 text-sm">
+        <span className="min-w-0 truncate">{label}</span>
+        <span className="shrink-0 text-muted">
+          {value} {value === 1 ? unit : `${unit}s`}
+        </span>
+      </div>
+      <div className="mt-1.5 h-1.5 rounded bg-rule" aria-hidden="true">
+        <div
+          className={`bar-grow h-1.5 rounded ${color}`}
+          style={{ width: `${pct}%`, "--i": index }}
+        />
+      </div>
+    </li>
+  );
+}
+
 export default async function DashboardPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
   const userId = session.user.id;
-    const startOfToday = istDayRange(0).start;
+  const startOfToday = istDayRange(0).start;
+  const weekEnd = istDayRange(7).start;
 
-  const [total, ready, processing, recent, hearings] = await Promise.all([
+  const [
+    total,
+    summarized,
+    citationTotal,
+    recent,
+    hearings,
+    weekHearings,
+    topCitations,
+    languages,
+  ] = await Promise.all([
     prisma.judgment.count({ where: { userId } }),
     prisma.judgment.count({ where: { userId, summarizedAt: { not: null } } }),
-    prisma.judgment.count({ where: { userId, status: "PROCESSING" } }),
+    prisma.citation.count({ where: { judgment: { userId } } }),
     prisma.judgment.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -57,24 +87,65 @@ export default async function DashboardPage() {
       take: 5,
       include: { judgment: { select: { id: true, title: true, caseNumber: true } } },
     }),
+    prisma.hearing.findMany({
+      where: { judgment: { userId }, date: { gte: startOfToday, lt: weekEnd } },
+      select: { date: true },
+    }),
+    prisma.citation.groupBy({
+      by: ["normalized"],
+      where: { judgment: { userId }, normalized: { not: null } },
+      having: { normalized: { _count: { gt: 1 } } },
+      _count: { normalized: true },
+      orderBy: { _count: { normalized: "desc" } },
+      take: 5,
+    }),
+    prisma.judgment.groupBy({
+      by: ["language"],
+      where: { userId, language: { not: null } },
+      _count: { language: true },
+    }),
   ]);
 
   const displayName = session.user.name || session.user.email;
   const firstName = displayName.split(/[ @]/)[0];
   const roleLabel = ROLE_LABEL[session.user.role] || "Lawyer";
 
+  // The next 7 days, in Indian time, with the number of hearings on each
+  const perDay = {};
+  for (const h of weekHearings) {
+    const key = toDateInputValue(h.date);
+    perDay[key] = (perDay[key] || 0) + 1;
+  }
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const { start } = istDayRange(i);
+    return {
+      key: toDateInputValue(start),
+      isToday: i === 0,
+      weekday: start.toLocaleDateString("en-IN", { weekday: "short", timeZone: TZ }),
+      day: start.toLocaleDateString("en-IN", { day: "numeric", timeZone: TZ }),
+      count: perDay[toDateInputValue(start)] || 0,
+    };
+  });
+
   const stats = [
-    { label: "Judgments uploaded", value: total },
-    { label: "Summaries ready", value: ready },
-    { label: "Being processed", value: processing },
+    { label: "Judgments", value: total },
+    { label: "Summaries ready", value: summarized },
+    { label: "Hearings this week", value: weekHearings.length },
+    { label: "Citations tracked", value: citationTotal },
   ];
+
+  const maxCite = Math.max(1, ...topCitations.map((c) => c._count.normalized));
+  const langRows = languages
+    .map((l) => ({ name: l.language, count: l._count.language }))
+    .sort((a, b) => b.count - a.count);
+  const maxLang = Math.max(1, ...langRows.map((l) => l.count));
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[250px_1fr]">
       <Sidebar name={displayName} roleLabel={roleLabel} />
 
       <main className="px-6 py-8 lg:px-12 lg:py-12">
-        <header className="flex flex-wrap items-end justify-between gap-4">
+        <header className="reveal flex flex-wrap items-end justify-between gap-4" style={{ "--i": 0 }}>
           <div>
             <h1 className="font-serif text-3xl">Welcome, {firstName}</h1>
             <p className="mt-2 text-muted">
@@ -86,16 +157,58 @@ export default async function DashboardPage() {
           </Link>
         </header>
 
-        <dl className="mt-10 grid grid-cols-3 border-y border-rule">
+        <dl
+          className="reveal mt-10 grid grid-cols-2 gap-px border-y border-rule bg-rule lg:grid-cols-4"
+          style={{ "--i": 1 }}
+        >
           {stats.map((s) => (
-            <div key={s.label} className="border-l border-rule px-4 py-5 first:border-l-0 lg:px-6">
+            <div key={s.label} className="bg-paper px-4 py-5 lg:px-6">
               <dt className="text-sm text-muted">{s.label}</dt>
               <dd className="mt-1 font-serif text-3xl">{s.value}</dd>
             </div>
           ))}
         </dl>
 
-        <div className="mt-10 grid gap-12 xl:grid-cols-[1.5fr_1fr]">
+        <section className="reveal mt-10" style={{ "--i": 2 }}>
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="font-serif text-xl">The next 7 days</h2>
+            <Link
+              href="/hearings"
+              className="text-sm text-muted underline underline-offset-4 hover:text-ink"
+            >
+              All hearings
+            </Link>
+          </div>
+          <ol className="mt-4 grid grid-cols-7 gap-1.5 sm:gap-2">
+            {week.map((d) => (
+              <li
+                key={d.key}
+                aria-current={d.isToday ? "date" : undefined}
+                className={`rounded-md border px-1 py-3 text-center sm:px-2 ${
+                  d.count > 0 ? "border-brass bg-white" : "border-rule bg-white/50"
+                } ${d.isToday ? "ring-1 ring-ink" : ""}`}
+              >
+                <p className="text-xs text-muted">{d.isToday ? "Today" : d.weekday}</p>
+                <p className="mt-1 font-serif text-2xl leading-none">{d.day}</p>
+                <p className="mt-2 text-xs">
+                  {d.count > 0 ? (
+                    <span className="font-medium text-brass">
+                      {d.count}
+                      <span className="hidden sm:inline">
+                        {" "}
+                        {d.count === 1 ? "hearing" : "hearings"}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-muted">-</span>
+                  )}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <div className="reveal mt-12 grid gap-12 xl:grid-cols-[1.5fr_1fr]" style={{ "--i": 3 }}>
           <section>
             <h2 className="font-serif text-xl">Recent judgments</h2>
 
@@ -136,7 +249,7 @@ export default async function DashboardPage() {
 
             {hearings.length === 0 ? (
               <p className="mt-4 text-sm text-muted">
-                No hearings scheduled. Hearing dates found in your judgments will show up here.
+                No hearings scheduled. Add a date on a judgment's page and it will show up here.
               </p>
             ) : (
               <ul className="mt-4 space-y-5">
@@ -173,6 +286,55 @@ export default async function DashboardPage() {
                     </li>
                   );
                 })}
+              </ul>
+            )}
+          </section>
+        </div>
+
+        <div className="reveal mt-14 grid gap-12 border-t border-rule pt-10 xl:grid-cols-2" style={{ "--i": 4 }}>
+          <section>
+            <h2 className="font-serif text-xl">Most cited authorities</h2>
+            <p className="mt-1 text-sm text-muted">
+              Citations that appear in more than one of your judgments.
+            </p>
+            {topCitations.length === 0 ? (
+              <p className="mt-5 text-sm text-muted">
+                Nothing yet. Once two judgments cite the same case, it shows up here.
+              </p>
+            ) : (
+              <ul className="mt-5 space-y-4">
+                {topCitations.map((c, i) => (
+                  <BarRow
+                    key={c.normalized}
+                    label={c.normalized}
+                    value={c._count.normalized}
+                    max={maxCite}
+                    unit="judgment"
+                    index={i}
+                  />
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section>
+            <h2 className="font-serif text-xl">Languages</h2>
+            <p className="mt-1 text-sm text-muted">The language of your summarized judgments.</p>
+            {langRows.length === 0 ? (
+              <p className="mt-5 text-sm text-muted">Nothing yet. Summarize a judgment to see this.</p>
+            ) : (
+              <ul className="mt-5 space-y-4">
+                {langRows.map((l, i) => (
+                  <BarRow
+                    key={l.name}
+                    label={l.name}
+                    value={l.count}
+                    max={maxLang}
+                    unit="judgment"
+                    index={i}
+                    color="bg-ink"
+                  />
+                ))}
               </ul>
             )}
           </section>

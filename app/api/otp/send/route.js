@@ -2,6 +2,8 @@ import prisma from "../../../../lib/prisma";
 import { generateOtp, hashOtp } from "../../../../lib/otp";
 import { sendOtpEmail } from "../../../../lib/mailer";
 
+const PURPOSE = "VERIFY";
+
 export async function POST(req) {
   const body = await req.json();
   const email = body?.email?.toString().trim().toLowerCase();
@@ -11,7 +13,7 @@ export async function POST(req) {
   }
 
   const recent = await prisma.otpCode.findFirst({
-    where: { email },
+    where: { email, purpose: PURPOSE },
     orderBy: { createdAt: "desc" },
   });
   if (recent && Date.now() - recent.createdAt.getTime() < 60 * 1000) {
@@ -25,10 +27,11 @@ export async function POST(req) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (user) {
     const code = generateOtp();
-    await prisma.otpCode.deleteMany({ where: { email } });
+    await prisma.otpCode.deleteMany({ where: { email, purpose: PURPOSE } });
     await prisma.otpCode.create({
       data: {
         email,
+        purpose: PURPOSE,
         codeHash: hashOtp(email, code),
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       },
@@ -38,7 +41,7 @@ export async function POST(req) {
       await sendOtpEmail(email, code);
     } catch (err) {
       console.error("OTP email failed:", err);
-      await prisma.otpCode.deleteMany({ where: { email } });
+      await prisma.otpCode.deleteMany({ where: { email, purpose: PURPOSE } });
       return Response.json(
         { error: "Could not send the email. Try again in a moment." },
         { status: 500 }

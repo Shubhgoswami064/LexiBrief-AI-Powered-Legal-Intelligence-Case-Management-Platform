@@ -1,22 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import AuthShell from "../components/AuthShell";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [verified, setVerified] = useState(false);
 
-  useEffect(() => {
-    setVerified(new URLSearchParams(window.location.search).get("verified") === "1");
-  }, []);
+  const notice =
+    params.get("reset") === "1"
+      ? "Password changed. Sign in with your new password."
+      : params.get("verified") === "1"
+      ? "Email verified. Sign in with your password."
+      : "";
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -54,12 +57,12 @@ export default function LoginPage() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-5">
-        {verified && (
+        {notice && (
           <p
             role="status"
             className="border-l-[3px] border-verdigris bg-white px-3 py-2 text-sm text-verdigris"
           >
-            Email verified. Sign in with your password.
+            {notice}
           </p>
         )}
         {error && (
@@ -88,11 +91,25 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+          <Link
+            href="/forgot-password"
+            className="mt-1.5 inline-block text-sm text-muted underline underline-offset-4 hover:text-ink"
+          >
+            Forgot password?
+          </Link>
         </label>
         <button className="btn-primary w-full" disabled={pending}>
           {pending ? "Signing in…" : "Sign in"}
         </button>
       </form>
     </AuthShell>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

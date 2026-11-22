@@ -1,10 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "../../../auth";
 import prisma from "../../../lib/prisma";
+import { istDayRange } from "../../../lib/ist";
 import Sidebar from "../../components/Sidebar";
 import SummaryButton from "../../components/SummaryButton";
 import AutoSummarize from "../../components/AutoSummarize";
 import DeleteButton from "../../components/DeleteButton";
+import RetryButton from "../../components/RetryButton";
 import SimilarJudgments from "../../components/SimilarJudgments";
 import HearingManager from "../../components/HearingManager";
 
@@ -42,22 +44,38 @@ export default async function JudgmentPage({ params }) {
   const preview = j.fullText ? j.fullText.slice(0, PREVIEW_CHARS) : "";
   const keyPoints = Array.isArray(j.keyPoints) ? j.keyPoints : [];
   const hasSummary = Boolean(j.summary);
+  const contentLang = j.language === "Hindi" ? "hi" : "en";
+
   const hearings = j.hearings.map((h) => ({
     id: h.id,
     date: h.date.toISOString(),
     purpose: h.purpose,
   }));
+  const todayStart = istDayRange(0).start;
+  const nextHearing = j.hearings.find((h) => h.date >= todayStart);
 
-  const stats = [
+  const glance = [
     { label: "Pages", value: j.pageCount ?? "-" },
     { label: "Words", value: words ? words.toLocaleString("en-IN") : "-" },
+    { label: "Citations", value: hasSummary ? j.citations.length : "-" },
     {
-      label: "Uploaded",
-      value: formatDate(j.createdAt, { day: "numeric", month: "short", year: "numeric" }),
+      label: "Next hearing",
+      value: nextHearing
+        ? formatDate(nextHearing.date, { day: "numeric", month: "short", year: "numeric" })
+        : "None",
     },
   ];
 
-  const meta = [j.caseNumber, j.court, j.language].filter(Boolean).join(", ");
+  const sections = [
+    j.fullText && { id: "summary", label: "Summary" },
+    hasSummary && keyPoints.length > 0 && { id: "points", label: "Key points" },
+    hasSummary && { id: "similar", label: "Similar" },
+    { id: "hearings", label: "Hearings" },
+    hasSummary && { id: "citations", label: "Citations" },
+    preview && { id: "text", label: "Full text" },
+  ].filter(Boolean);
+
+  const chips = [j.caseNumber, j.court, j.language].filter(Boolean);
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[250px_1fr]">
@@ -67,11 +85,25 @@ export default async function JudgmentPage({ params }) {
       />
 
       <main className="px-6 py-8 lg:px-12 lg:py-12">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 max-w-2xl">
-            <h1 className="font-serif text-3xl">{j.title}</h1>
-            {j.parties && <p className="mt-2 text-ink">{j.parties}</p>}
-            <p className="mt-1 text-muted">{meta || "No case details added"}</p>
+        <header className="reveal flex flex-wrap items-start justify-between gap-4" style={{ "--i": 0 }}>
+          <div className="min-w-0 max-w-3xl">
+            <h1 className="font-serif text-3xl leading-tight sm:text-4xl">{j.title}</h1>
+            {j.parties && (
+              <p lang={contentLang} className="mt-2 text-lg">
+                {j.parties}
+              </p>
+            )}
+            <p className="mt-3 flex flex-wrap gap-2 text-sm">
+              {chips.length === 0 ? (
+                <span className="text-muted">No case details added</span>
+              ) : (
+                chips.map((c) => (
+                  <span key={c} className="rounded border border-rule bg-white px-2.5 py-1">
+                    {c}
+                  </span>
+                ))
+              )}
+            </p>
           </div>
           <div className="flex items-start gap-3">
             <a
@@ -86,9 +118,12 @@ export default async function JudgmentPage({ params }) {
           </div>
         </header>
 
-        <dl className="mt-8 grid grid-cols-3 border-y border-rule">
-          {stats.map((s) => (
-            <div key={s.label} className="border-l border-rule px-4 py-5 first:border-l-0 lg:px-6">
+        <dl
+          className="reveal mt-8 grid grid-cols-2 gap-px border-y border-rule bg-rule lg:grid-cols-4"
+          style={{ "--i": 1 }}
+        >
+          {glance.map((s) => (
+            <div key={s.label} className="bg-paper px-4 py-5 lg:px-6">
               <dt className="text-sm text-muted">{s.label}</dt>
               <dd className="mt-1 font-serif text-2xl">{s.value}</dd>
             </div>
@@ -96,72 +131,110 @@ export default async function JudgmentPage({ params }) {
         </dl>
 
         {j.status === "FAILED" && (
-          <p role="alert" className="notice-error mt-8">
-            {j.errorMessage || "This judgment could not be processed."}
-          </p>
+          <div className="mt-8">
+            <p role="alert" className="notice-error">
+              {j.errorMessage || "This judgment could not be processed."}
+            </p>
+            <div className="mt-4">
+              <RetryButton judgmentId={j.id} />
+            </div>
+          </div>
         )}
+
+        {hasSummary && j.outcome && (
+          <div className="reveal mt-8 border-l-4 border-brass bg-white px-6 py-5" style={{ "--i": 2 }}>
+            <p className="text-sm text-muted">Outcome</p>
+            <p lang={contentLang} className="mt-1 font-serif text-2xl leading-snug">
+              {j.outcome}
+            </p>
+          </div>
+        )}
+
+        <nav
+          aria-label="Sections"
+          className="sticky top-0 z-10 -mx-6 mt-8 overflow-x-auto border-b border-rule bg-paper/90 px-6 backdrop-blur lg:-mx-12 lg:px-12"
+        >
+          <ul className="flex gap-6 text-sm">
+            {sections.map((s) => (
+              <li key={s.id}>
+                <a
+                  href={`#${s.id}`}
+                  className="block whitespace-nowrap border-b-2 border-transparent py-3 text-muted transition hover:border-brass hover:text-ink"
+                >
+                  {s.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
         <div className="mt-10 grid gap-12 xl:grid-cols-[minmax(0,1fr)_300px]">
           {j.fullText ? (
-            <section className="max-w-3xl">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <h2 className="font-serif text-2xl">Summary</h2>
-                {hasSummary && <SummaryButton judgmentId={j.id} hasSummary />}
-              </div>
+            <div className="max-w-3xl">
+              <section id="summary" className="scroll-mt-16">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <h2 className="font-serif text-2xl">Summary</h2>
+                  {hasSummary && <SummaryButton judgmentId={j.id} hasSummary />}
+                </div>
 
-              {hasSummary ? (
-                <>
-                  <p className="mt-4 text-lg leading-relaxed">{j.summary}</p>
+                {hasSummary ? (
+                  <p lang={contentLang} className="mt-4 text-lg leading-relaxed">
+                    {j.summary}
+                  </p>
+                ) : isRecent(j.createdAt) ? (
+                  <AutoSummarize judgmentId={j.id} />
+                ) : (
+                  <div className="mt-4">
+                    <p className="mb-4 text-muted">No summary yet.</p>
+                    <SummaryButton judgmentId={j.id} hasSummary={false} />
+                  </div>
+                )}
+              </section>
 
-                  {j.outcome && (
-                    <p className="mt-6 border-l-[3px] border-brass pl-4">
-                      <span className="block text-sm text-muted">Outcome</span>
-                      {j.outcome}
-                    </p>
-                  )}
+              {hasSummary && keyPoints.length > 0 && (
+                <section id="points" className="mt-12 scroll-mt-16">
+                  <h3 className="font-serif text-2xl">Key legal points</h3>
+                  <ol lang={contentLang} className="mt-5 divide-y divide-rule border-y border-rule">
+                    {keyPoints.map((p, i) => (
+                      <li key={i} className="flex gap-5 py-4">
+                        <span className="w-8 shrink-0 font-serif text-2xl leading-none text-brass">
+                          {i + 1}
+                        </span>
+                        <span className="leading-relaxed">{p}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
 
-                  {keyPoints.length > 0 && (
-                    <div className="mt-10">
-                      <h3 className="font-serif text-xl">Key legal points</h3>
-                      <ol className="mt-4 list-decimal space-y-3 pl-5 marker:text-brass">
-                        {keyPoints.map((p, i) => (
-                          <li key={i} className="pl-1 leading-relaxed">
-                            {p}
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  )}
-
+              {hasSummary && (
+                <div id="similar" className="scroll-mt-16">
                   <SimilarJudgments
                     judgmentId={j.id}
                     userId={session.user.id}
                     citations={j.citations}
                   />
-
-                  <p className="mt-10 text-sm text-muted">
-                    AI-generated. Check the summary and citations against the original judgment before
-                    relying on them.
-                  </p>
-                </>
-              ) : isRecent(j.createdAt) ? (
-                <AutoSummarize judgmentId={j.id} />
-              ) : (
-                <div className="mt-4">
-                  <p className="mb-4 text-muted">No summary yet.</p>
-                  <SummaryButton judgmentId={j.id} hasSummary={false} />
                 </div>
               )}
-            </section>
+
+              {hasSummary && (
+                <p className="mt-10 text-sm text-muted">
+                  AI-generated. Check the summary and citations against the original judgment before
+                  relying on them.
+                </p>
+              )}
+            </div>
           ) : (
             <div />
           )}
 
           <aside className="space-y-10 xl:border-l xl:border-rule xl:pl-8">
-            <HearingManager judgmentId={j.id} hearings={hearings} />
+            <div id="hearings" className="scroll-mt-16">
+              <HearingManager judgmentId={j.id} hearings={hearings} />
+            </div>
 
             {hasSummary && (
-              <div>
+              <div id="citations" className="scroll-mt-16">
                 <h3 className="font-serif text-xl">
                   Citations{j.citations.length > 0 ? ` (${j.citations.length})` : ""}
                 </h3>
@@ -185,7 +258,7 @@ export default async function JudgmentPage({ params }) {
         </div>
 
         {preview && (
-          <details className="mt-12 max-w-3xl">
+          <details id="text" className="mt-12 max-w-3xl scroll-mt-16">
             <summary className="cursor-pointer font-serif text-xl">Extracted text</summary>
             <pre className="mt-4 max-h-[32rem] overflow-y-auto whitespace-pre-wrap border border-rule bg-white p-6 font-sans text-sm leading-relaxed">
               {preview}
