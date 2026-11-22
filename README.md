@@ -279,4 +279,4 @@ Fictional judgments for testing are in `samples/`: three English cases (two rela
 
 ## About
 
-Built by Subham Kumar ([@Shubhgoswami064](https://github.com/Shubhgoswami064)) as a college project. It is an educational project and is not legal advice.
+Built by Shubh Goswami([@Shubhgoswami064](https://github.com/Shubhgoswami064)) as a college project. It is an educational project and is not legal advice.
